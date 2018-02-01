@@ -1,0 +1,78 @@
+---
+title: "Time Series--Introduction"
+output: html_document
+---
+
+Reference book:  [R in Action](https://www.manning.com/books/r-in-action)  
+For further study, the following books are recommended:   
+
+- [Time Series](http://www.openuniversity.edu/courses/modules/m249?): A tutorial book  
+- [A Little Book of R for Time Series](http://mng.bz/8fz0): Another tutorial book with R code  
+- [Forecast: Principles and Practice](http://otexts.com/fpp): Highly recommended  
+  
+### 生成时序对象
+
+```{r}
+sales=c(18, 33, 41, 7, 34, 35, 24, 25, 24, 21, 25, 20, 
+        22, 31, 40, 29, 25, 21, 22, 54, 31, 25, 26, 35)
+tsales=ts(sales, start=c(2003, 1), frequency=12)
+plot(tsales, type="o", pch=19)
+start(tsales)
+end(tsales)
+frequency(tsales)
+```
+
+*对对象取子集*
+
+```{r}
+tsales.subset=window(tsales, start=c(2003, 5), end=c(2004, 6))
+tsales.subset
+```
+
+### 通过 ma() function from [forecast](https://cran.r-project.org/web/packages/forecast/) package 简单移动平均进行平滑处理  
+
+```{r warning=FALSE, message=FALSE}
+library(forecast)
+```
+```{r echo=TRUE}
+opar=par(no.readonly = TRUE)
+par(mfrow=c(2,2))
+ylim=c(min(Nile), max(Nile))
+plot(Nile, main="Raw time series")
+plot(ma(Nile, 3), main="Simple Moving Averages (k=3)", ylim=ylim)
+plot(ma(Nile, 7), main="Simple Moving Averages (k=7)", ylim=ylim)
+plot(ma(Nile, 15), main="Simple Moving Averages (k=15)", ylim=ylim)
+par(opar)
+```
+
+###通过 stl() function 进行季节性分解  
+- trend component: 捕捉长期变化  
+- seasonal component: 捕捉周期性变化  
+- error component: 捕捉到不能被趋势或季节效应解释的变化  
+
+#### An example: AirPassengers  
+序列的波动随着整体水平的增长而增长, 相乘模型更适合  
+*stl() 只能处理相加模型, 因而通过对数变换转换成相加模型*
+
+```{r}
+plot(AirPassengers)
+lAirPassengers=log(AirPassengers)
+plot(lAirPassengers, ylab="log(AirPassengers)")
+fit=stl(lAirPassengers, s.window = "period")
+plot(fit, main="季节性分解图, 灰色长条表示量级")
+```
+
+下列code给出观测值中趋势, 季节以及随机项的具体组成, 及其原始尺度
+
+```{r eval=FALSE}
+fit$time.series
+exp(fit$time.series)
+```
+
+季节分解可视化
+
+```{r warning=FALSE, message=FALSE}
+monthplot(AirPassengers, xlab="", ylab="")
+seasonplot(AirPassengers, year.labels = "TRUE", main="")
+```
+

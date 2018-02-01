@@ -1,0 +1,142 @@
+---
+title: "Time Series--Prediction model"
+output: html_document
+---
+
+Reference book:  [R in Action](https://www.manning.com/books/r-in-action)  
+For further study, the following books are recommended:   
+
+- [Time Series](http://www.openuniversity.edu/courses/modules/m249?): A tutorial book  
+- [A Little Book of R for Time Series](http://mng.bz/8fz0): Another tutorial book with R code  
+- [Forecast: Principles and Practice](http://otexts.com/fpp): Highly recommended  
+
+
+### 指数预测模型: ets function from [forecast](https://cran.r-project.org/web/packages/forecast/) package  
+- pros: 短期预测性能良好  
+
+```{r warning=FALSE, message=FALSE}
+library(forecast)
+```
+
+#### Single exponential model: 拟合常数水平项和随机项  
+观测值: Y<sub>t</sub> = level + irregular<sub>t</sub>  
+
+```{r}
+fitANN=ets(nhtemp, model = "ANN")
+fitANN
+```
+
+预测值(1-step ahead forecast): Y<sub>t+1</sub> = $\sum_0^t${c<sub>i</sub>*Y<sub>t-i</sub>}  
+其中 c<sub>i</sub> = $\alpha * (1 - \alpha)^i$; $0 \leq \alpha \leq 1$; $\sum_0^t{c_i} = 1$
+
+```{r}
+forecast(fitANN, 1)
+```
+*时序值, 预测值, 预测区间*  
+```{r}
+accuracy(fitANN)
+```
+*准确性度量* 
+
+#### Double exponential model (Holt exponential smoothing): 拟合水平项和趋势项  
+观测值: Y<sub>t</sub> = level + slope * t + irregular<sub>t</sub>  
+
+```{r eval=FALSE}
+fitAAN=ets(nhtemp, model = "AAN")
+```
+
+#### Trible exponential model (Holt-Winters exponential smoothing): 拟合水平项, 趋势项以及季节效应
+观测值: Y<sub>t</sub> = level + slope * t + s<sub>t</sub> + irregular<sub>t</sub>  
+
+```{r}
+fitAAA=ets(log(AirPassengers), model = "AAA")
+fitAAA
+```
+
+用原始尺度预测  
+
+```{r}
+pred=forecast(fitAAA, 5) ##预测未来5个月
+```
+```{r echo=FALSE}
+plot(pred, main="Forecast for Air Travel", ylab="Log(AirPassengers)")
+title(sub="Prediction based on Holt-Winters exponential smoothing (After log transformation)")
+```
+```{r}
+p=cbind(exp(pred$mean), exp(pred$lower), exp(pred$upper))
+colnames(p)=c("mean", "Lo 80", "Lo 95", "Hi 80", "Hi 95")
+p
+```
+
+### ARIMA预测模型: arima function from [forecast](https://cran.r-project.org/web/packages/forecast/) package  
+**!!要求序列具有平稳性**  
+  
+#### 建立ARIMA模型的步骤  
+
+##### 1.变换序列的值, 确保序列方差为常数  
+  常用变换: 对数变换, Box-Cox变换  
+
+##### 2.通过d次差分移除趋势项  
+
+```{r eval=FALSE}
+library(forecast)
+ndiffs(ts) # Find the optimal d
+dts=diff(ts, differences = d) # 对序列进行差分
+```
+
+##### 3.通过ADF(Augmented Dickey-Fuller)统计检验来验证平稳性检验, 由[tseries](https://cran.r-project.org/web/packages/tseries/) package中的adf.test()实现  
+
+##### 4.确定p, q的值, 使得序列中的每个观测值可由过去p个观测值和q个残差的线性组合表示  
+
+```{r eval=FALSE}
+Acf(dts) # 绘制ACF图
+Pacf(dts) # 绘制PACF图
+```
+```{r echo=FALSE}
+library(knitr)
+ARIMA=read.csv("ARIMA.CSV")
+kable(ARIMA, caption="选择ARIMA模型的方法")
+```
+
+##### 5.使用arima(ts, order=c(p, d, q))拟合模型  
+
+##### 6.根据AIC或者准确性度量来选择最佳模型  
+
+##### 7.模型的独立正态分布检验, 由Q-Q图及Box.test()实现  
+
+#### An example of Nile  
+
+```{r warning=FALSE,message=FALSE}
+library(forecast)
+library(tseries)
+```
+```{r}
+plot(Nile) # 方差稳定但存在趋势项
+ndiffs(Nile)
+dNile=diff(Nile) # 一次差分
+plot(dNile)
+```
+```{r warning=FALSE}
+adf.test(dNile)
+```
+
+```{r}
+Acf(dNile)
+Pacf(dNile)
+```
+
+由上两图可知, q取1, p取0
+
+```{r}
+fit=arima(Nile, order=c(0, 1, 1))
+fit
+accuracy(fit) # 准确性度量
+qqnorm(fit$residuals)
+qqline(fit$residuals) # Q-Q Plot
+Box.test(fit$residuals, type = "Ljung-Box")
+```
+p-value不显著, 故认为残差的自相关系数为0
+```{r}
+forecast(fit, 3) # 预测后三个月
+plot(forecast(fit, 3), xlab="Year", ylab="Annual Flow")
+```
